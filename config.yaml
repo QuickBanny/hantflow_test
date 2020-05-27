@@ -1,0 +1,16 @@
+API:
+  host_url: 'https://api.huntflow.ru'
+  get_user_id: '/me'
+  post_upload_files: '/account/{}/upload'
+  get_vacancy_statuses: '/account/{}/vacancy/statuses'
+  get_vacancies: '/account/{}/vacancies'
+  post_add_applicants: '/account/{}/applicants'
+  post_add_applicants_in_vacancy: '/account/{}/applicants/{}/vacancy'
+
+USER:
+  email: 'test@huntflow.ru'
+  password: 'jasdf8JSd8fj'
+  token: '71e89e8af02206575b3b4ae80bf35b6386fe3085af3d4085cbc7b43505084482'
+
+PATH:
+  file_name_db: 'Тестовая база.xlsx'
