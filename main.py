@@ -8,8 +8,8 @@ import requests
 config = parse_config_data.parse_config_data()
 
 
-def print_error_msg(url, status_code):
-    print(url, status_code)
+def print_error_msg(url, status_code, res_json):
+    print(url, status_code, res_json)
 
 
 class User:
@@ -48,7 +48,7 @@ class UseApi:
         if response.status_code == 200:
             files_id = {'id': response.json()['id']}
         else:
-            print_error_msg(url, response.status_code)
+            print_error_msg(url, response.status_code, response.json())
         return files_id
 
     def get_account_id(self) -> int:
@@ -65,7 +65,7 @@ class UseApi:
             account_id = response.json()['id']
             return account_id
         else:
-            print_error_msg(url, response.status_code)
+            print_error_msg(url, response.status_code, response.json())
         return account_id
 
     def get_vacancy_id(self, name_vacancy: str) -> int:
@@ -77,7 +77,7 @@ class UseApi:
                 if vacancy['position'] == name_vacancy:
                     return vacancy['id']
         else:
-            print_error_msg(url, response.status_code)
+            print_error_msg(url, response.status_code, response.json())
         return vacancy_id
 
     def get_vacancy_status_id(self, name_vacancy_status: str) -> int:
@@ -105,10 +105,10 @@ class UseApi:
                 applicant_id = applicant['id']
                 return applicant_id
         else:
-            print_error_msg(url, response.status_code)
+            print_error_msg(url, response.status_code, response.json())
         return applicant_id
 
-    def add_applicant_in_vacancy(self, applicant_id: int, vacancy_fields: dict):
+    def add_applicant_in_vacancy(self, applicant_id: int, vacancy_fields: dict) -> int:
         applicant_in_vacancy_id = 0
         url = self.host_url + self.api_add_applicants_in_vacancy.format(self.user.account_id, applicant_id)
         params = vacancy_fields
@@ -118,7 +118,7 @@ class UseApi:
                 applicant_in_vacancy_id = applicant_in_vacancy['id']
                 return applicant_in_vacancy_id
         else:
-            print_error_msg(url, response.status_code)
+            print_error_msg(url, response.status_code, response.json())
         return applicant_in_vacancy_id
 
 
@@ -196,30 +196,33 @@ def main(argv):
     test_user = User(email=email, password=password, token=token)
     api_object = UseApi(config_api=config['API'], user=test_user)
     account_id = api_object.get_account_id()
-    test_user.set_account_id(account_id)
-    for person_fields, vacancy_fields in parse_test_db(file_name_db=file_name_db, path_to_db=path_to_db, position=position):
-        if not person_fields or not vacancy_fields:
-            print('Not person_fields or vacancy_fields')
-        else:
-            externals = []
-            files_resume = find_resume_files(person_fields=person_fields, api_object=api_object, path_to_db=path_to_db)
-            if files_resume:
-                externals.append({'files': files_resume})
-                person_fields['externals'] = externals
-            applicant_id = api_object.add_applicant_in_db(person_fields)
-            if not applicant_id:
-                print("Error with add applicant")
+    if not account_id:
+        print('ERROR: Not get account_id')
+    else:
+        test_user.set_account_id(account_id)
+        for person_fields, vacancy_fields in parse_test_db(file_name_db=file_name_db, path_to_db=path_to_db, position=position):
+            if not person_fields or not vacancy_fields:
+                print('Not person_fields or vacancy_fields')
             else:
-                pass
-            vacancy_id = api_object.get_vacancy_id(name_vacancy=person_fields['position'])
-            vacancy_status_id = api_object.get_vacancy_status_id(name_vacancy_status=vacancy_fields['status'])
-            if not vacancy_id or not vacancy_status_id:
-                print("Not vacancy or Not vacancy_status in DB")
-            else:
-                vacancy_fields['vacancy'] = vacancy_id
-                vacancy_fields['status'] = vacancy_status_id
-                api_object.add_applicant_in_vacancy(applicant_id=applicant_id, vacancy_fields=vacancy_fields)
-        print('----------------------------------------------------------------------------------------')
+                externals = []
+                files_resume = find_resume_files(person_fields=person_fields, api_object=api_object, path_to_db=path_to_db)
+                if files_resume:
+                    externals.append({'files': files_resume})
+                    person_fields['externals'] = externals
+                applicant_id = api_object.add_applicant_in_db(person_fields)
+                if not applicant_id:
+                    print("Error with add applicant")
+                else:
+                    pass
+                vacancy_id = api_object.get_vacancy_id(name_vacancy=person_fields['position'])
+                vacancy_status_id = api_object.get_vacancy_status_id(name_vacancy_status=vacancy_fields['status'])
+                if not vacancy_id or not vacancy_status_id:
+                    print("Not vacancy or Not vacancy_status in DB")
+                else:
+                    vacancy_fields['vacancy'] = vacancy_id
+                    vacancy_fields['status'] = vacancy_status_id
+                    api_object.add_applicant_in_vacancy(applicant_id=applicant_id, vacancy_fields=vacancy_fields)
+            print('----------------------------------------------------------------------------------------')
 
 
 if __name__ == '__main__':
