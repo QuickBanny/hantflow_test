@@ -2,3 +2,4 @@ pytest
 xlrd
 pyyaml
 requests
+requests_toolbelt

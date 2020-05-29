@@ -2,11 +2,13 @@ import sys
 import os
 import xlrd
 import json
+import urllib3
 from utils import parse_config_data
 import requests
+from requests_toolbelt.multipart.encoder import MultipartEncoder
 
 config = parse_config_data.parse_config_data()
-
+http = urllib3.PoolManager()
 
 def print_error_msg(url, status_code, res_json):
     print(url, status_code, res_json)
@@ -43,37 +45,43 @@ class UseApi:
             'X-File-Parse': 'true',
             'Authorization': 'Bearer {}'.format(self.user.token),
         }
-        files = {'file': open(path_to_files, 'rb')}
-        response = requests.post(url, headers=headers, files=files,)
+        files = {'file=@{}'.format(path_to_files)}
+        path_to_files2 = path_to_files.replace('\\', '/')
+        print('@/' + path_to_files)
+        f = open(path_to_files, 'rb')
+        files = {'file': (path_to_files2, f)}
+        response = requests.post(url, files=files, headers=headers)
+        print(response.status_code)
         if response.status_code == 200:
             files_id = {'id': response.json()['id']}
         else:
-            print_error_msg(url, response.status_code, response.json())
+            print_error_msg(url, response.status_code, response.content)
         return files_id
 
     def get_account_id(self) -> int:
         account_id = 0
         headers = {
-            'User-Agent': 'App/1.0 (maiorovpavel@gmail.com)',
-            'Host': 'api.huntflow.ru',
-            'Accept': '*/*',
-            'Authorization': 'Bearer {}'.format(self.user.token)
+            'Authorization': 'Bearer {}'.format(self.user.token),
         }
         url = self.host_url + self.api_get_user_id
         response = requests.get(url=url, headers=headers)
         if response.status_code == 200:
-            account_id = response.json()['id']
+            account_id = int(response.json()['items'][0]['id'])
             return account_id
         else:
-            print_error_msg(url, response.status_code, response.json())
+            pass
+            print_error_msg(url, response.status_code, response.content)
         return account_id
 
     def get_vacancy_id(self, name_vacancy: str) -> int:
         vacancy_id = 0
+        headers = {
+            'Authorization': 'Bearer {}'.format(self.user.token),
+        }
         url = self.host_url + self.api_get_vacancies.format(self.user.account_id)
-        response = requests.get(url)
+        response = requests.get(url, headers=headers)
         if response.status_code == 200:
-            for vacancy in response.json():
+            for vacancy in response.json()['items']:
                 if vacancy['position'] == name_vacancy:
                     return vacancy['id']
         else:
@@ -82,43 +90,52 @@ class UseApi:
 
     def get_vacancy_status_id(self, name_vacancy_status: str) -> int:
         vacancy_status_id = 0
+        headers = {
+            'Authorization': 'Bearer {}'.format(self.user.token),
+        }
         url = self.host_url + self.api_get_vacancy_statuses.format(self.user.account_id)
-        response = requests.get(url)
+        response = requests.get(url, headers=headers)
         if response.status_code == 200:
-            for vacancy_status in response.json():
+            for vacancy_status in response.json()['items']:
                 if vacancy_status['name'] == name_vacancy_status:
                     return vacancy_status['id']
         else:
-            print_error_msg(url, response.status_code)
+            print_error_msg(url, response.status_code, response.content)
         return vacancy_status_id
 
     def add_applicant_in_db(self, person_fields: dict) -> int:
         applicant_id = 0
         url = self.host_url + self.api_add_applicants.format(self.user.account_id)
+        headers = {
+            'Authorization': 'Bearer {}'.format(self.user.token),
+        }
         person_fields = person_fields.copy()
         person_fields.pop('full_name')
         params = person_fields
-
-        response = requests.post(url=url, params=params)
+        print(params)
+        response = requests.post(url=url, data=params, headers=headers)
         if response.status_code == 200:
             for applicant in response.json():
                 applicant_id = applicant['id']
                 return applicant_id
         else:
-            print_error_msg(url, response.status_code, response.json())
+            print_error_msg(url, response.status_code, response.content)
         return applicant_id
 
     def add_applicant_in_vacancy(self, applicant_id: int, vacancy_fields: dict) -> int:
         applicant_in_vacancy_id = 0
         url = self.host_url + self.api_add_applicants_in_vacancy.format(self.user.account_id, applicant_id)
+        headers = {
+            'Authorization': 'Bearer {}'.format(self.user.token),
+        }
         params = vacancy_fields
-        response = requests.post(url=url, params=params)
+        response = requests.post(url=url, params=params, headers=headers)
         if response.status_code == 200:
             for applicant_in_vacancy in response.json():
                 applicant_in_vacancy_id = applicant_in_vacancy['id']
                 return applicant_in_vacancy_id
         else:
-            print_error_msg(url, response.status_code, response.json())
+            print_error_msg(url, response.status_code, response.content)
         return applicant_in_vacancy_id
 
 
@@ -171,7 +188,9 @@ def find_resume_files(person_fields: dict, api_object: UseApi, path_to_db: str) 
         path_to_position = os.path.join(path_to_db, person_fields['position'])
         for file in os.listdir(path_to_position):
             if person_fields['full_name'] in file:
-                resume_files.append(api_object.upload_files(os.path.join(path_to_position, file)))
+                res_upload_file = api_object.upload_files(os.path.join(path_to_position, file))
+                if res_upload_file['id'] is not 0:
+                    resume_files.append(res_upload_file)
     except Exception as es:
         print('FILES')
         print(es)
@@ -200,7 +219,9 @@ def main(argv):
         print('ERROR: Not get account_id')
     else:
         test_user.set_account_id(account_id)
-        for person_fields, vacancy_fields in parse_test_db(file_name_db=file_name_db, path_to_db=path_to_db, position=position):
+        for person_fields, vacancy_fields in parse_test_db(file_name_db=file_name_db,
+                                                           path_to_db=path_to_db,
+                                                           position=position):
             if not person_fields or not vacancy_fields:
                 print('Not person_fields or vacancy_fields')
             else:
@@ -217,7 +238,7 @@ def main(argv):
                 vacancy_id = api_object.get_vacancy_id(name_vacancy=person_fields['position'])
                 vacancy_status_id = api_object.get_vacancy_status_id(name_vacancy_status=vacancy_fields['status'])
                 if not vacancy_id or not vacancy_status_id:
-                    print("Not vacancy or Not vacancy_status in DB")
+                    print("Not vacancy - {} or Not vacancy_status - {} in DB".format(vacancy_id, vacancy_status_id))
                 else:
                     vacancy_fields['vacancy'] = vacancy_id
                     vacancy_fields['status'] = vacancy_status_id
