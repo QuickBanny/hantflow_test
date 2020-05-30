@@ -3,3 +3,5 @@ xlrd
 pyyaml
 requests
 requests_toolbelt
+httplib
+googletrans

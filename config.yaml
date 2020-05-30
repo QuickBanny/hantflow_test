@@ -1,3 +1,6 @@
+SETTINGS:
+  log_level: 'debug'
+
 API:
   host_url: 'https://dev-100-api.huntflow.ru'
   get_user_id: '/accounts'
@@ -14,3 +17,10 @@ USER:
 
 PATH:
   file_name_db: 'Тестовая база.xlsx'
+  path_to_db_dir: '/Users/quickbanny/PythonProjects/Examples/huntflow_test/hantflow_test/Тестовое задание/'
+
+TRANSLATE_STATUS_VACANCY:
+  Отправлено письмо: 'Contacted'
+  Интервью с HR: 'HR Interview'
+  Выставлен оффер: 'Offered'
+  Отказ: 'Declined'
